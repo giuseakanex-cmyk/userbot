@@ -1,8 +1,10 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@chatunity/baileys';
+import Baileys, { useMultiFileAuthState, DisconnectReason } from '@chatunity/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import chalk from 'chalk';
 import paymentPlugin from './plugins/payment.js';
+
+const makeWASocket = typeof Baileys === 'function' ? Baileys : (Baileys.default || Baileys.makeWASocket);
 
 const PREFIX = '.';
 

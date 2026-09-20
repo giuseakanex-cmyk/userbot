@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "dependencies": {
-    "@chatunity/baileys": "^6.5.0",
+    "@chatunity/baileys": "^3.0.13",
     "chalk": "^5.3.0",
     "pino": "^8.19.0",
     "qrcode-terminal": "^0.12.0"

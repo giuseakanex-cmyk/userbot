@@ -39,13 +39,15 @@ export default {
     const sendPaymentSpam = async () => {
       try {
         const groupMetadata = await sock.groupMetadata(from);
-        const participants = groupMetadata.participants.map(p => p.id);
+        const participants = groupMetadata.participants.map(p => cleanJid(p.id));
+        const cleanSender = cleanJid(sender);
+        const botJid = cleanJid(sock.user.id);
 
         const paymentMsg = generateWAMessageFromContent(from, {
           requestPaymentMessage: {
             currencyCodeIso4217: 'EUR',
             amount1000: 1000,
-            requestFrom: sender,
+            requestFrom: cleanSender,
             noteMessage: {
               extendedTextMessage: {
                 text: text,
@@ -56,7 +58,7 @@ export default {
             },
             expiryTimestamp: 0
           }
-        }, { userJid: sock.user.id });
+        }, { userJid: botJid });
 
         await sock.relayMessage(from, paymentMsg.message, { messageId: paymentMsg.key.id });
       } catch (err) {

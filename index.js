@@ -3,10 +3,13 @@ import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import chalk from 'chalk';
 import paymentPlugin from './plugins/payment.js';
+import pingPlugin from './plugins/ping.js';
 
 const makeWASocket = typeof Baileys === 'function' ? Baileys : (Baileys.default || Baileys.makeWASocket);
 
 const PREFIX = '.';
+
+const plugins = [paymentPlugin, pingPlugin];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -45,7 +48,7 @@ async function showStartupAnimation() {
   const steps = [
     'Inizializzazione moduli di rete...',
     'Caricamento libreria libuser...',
-    'Integrazione plugin di spam...',
+    'Integrazione plugin di spam e ping...',
     'Generazione interfaccia QR Code...'
   ];
 
@@ -109,10 +112,10 @@ async function startBot() {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      if (!msg.message || msg.key.fromMe) continue;
+      if (!msg.message) continue;
 
       const from = msg.key.remoteJid;
-      const sender = msg.key.participant || from;
+      const sender = msg.key.participant || (msg.key.fromMe ? sock.user.id : from);
 
       const messageContent =
         msg.message.conversation ||
@@ -124,22 +127,25 @@ async function startBot() {
       const args = messageContent.slice(PREFIX.length).trim().split(/ +/);
       const command = args.shift().toLowerCase();
 
-      const validCommands = [paymentPlugin.name, ...(paymentPlugin.aliases || [])];
+      for (const plugin of plugins) {
+        const validCommands = [plugin.name, ...(plugin.aliases || [])];
 
-      if (validCommands.includes(command)) {
-        console.log(chalk.bold.green(`[Esecuzione] ${command} | Mittente: ${sender.split('@')[0]} | Chat: ${from}`));
+        if (validCommands.includes(command)) {
+          console.log(chalk.bold.green(`[Esecuzione] ${command} | Mittente: ${sender.split('@')[0]} | Chat: ${from}`));
 
-        const sendText = (text) => sock.sendMessage(from, { text }, { quoted: msg });
+          const sendText = (text) => sock.sendMessage(from, { text }, { quoted: msg });
 
-        await paymentPlugin.run({
-          sock,
-          msg,
-          from,
-          sender,
-          command,
-          args,
-          sendText
-        });
+          await plugin.run({
+            sock,
+            msg,
+            from,
+            sender,
+            command,
+            args,
+            sendText
+          });
+          break;
+        }
       }
     }
   });

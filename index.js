@@ -4,12 +4,13 @@ import qrcode from 'qrcode-terminal';
 import chalk from 'chalk';
 import paymentPlugin from './plugins/payment.js';
 import pingPlugin from './plugins/ping.js';
+import tagallPlugin from './plugins/tagall.js';
 
 const makeWASocket = typeof Baileys === 'function' ? Baileys : (Baileys.default || Baileys.makeWASocket);
 
 const PREFIX = '.';
 
-const plugins = [paymentPlugin, pingPlugin];
+const plugins = [paymentPlugin, pingPlugin, tagallPlugin];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -48,7 +49,7 @@ async function showStartupAnimation() {
   const steps = [
     'Inizializzazione moduli di rete...',
     'Caricamento libreria libuser...',
-    'Integrazione plugin di spam e ping...',
+    'Integrazione plugin di spam, ping e tagall...',
     'Generazione interfaccia QR Code...'
   ];
 

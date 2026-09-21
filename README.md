@@ -54,15 +54,23 @@ npm install
 node index.js
 
 
-<details>
-<summary><b>📲 Collegamento tramite Codice di Accoppiamento</b></summary>
+📲 Collegamento tramite Codice di Accoppiamento</b></summary>
 1. Avvia il bot con ⁠node index.js⁠.
 2. Seleziona l'opzione ⁠1⁠ nel terminale.
 3. Inserisci il tuo numero di telefono completo di prefisso (es. ⁠393331234567⁠).
 4. Apri WhatsApp sul telefono: Impostazioni > Dispositivi collegati > Collega un dispositivo > Collega con numero di telefono.
 5. Inserisci il codice a 8 cifre mostrato nel terminale.
-</details>
 
-🧩 Struttura Plugin
+
+  🧩 Struttura Plugin
 I comandi vengono caricati in automatico dalla cartella ⁠plugins/⁠. Ogni plugin segue questo schema semplice:
 
+export default {
+  name: 'nomecomando',
+  aliases: ['alias1', 'alias2'],
+  description: 'Descrizione del comando',
+
+  async run({ sock, msg, from, args, sendText }) {
+    await sendText('Risposta del comando!');
+  }
+};

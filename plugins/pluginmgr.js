@@ -3,6 +3,21 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { fileURLToPath } from 'url';
 
+let generateWAMessageFromContent, proto;
+try {
+  const baileys = await import('@whiskeysockets/baileys');
+  generateWAMessageFromContent = baileys.generateWAMessageFromContent;
+  proto = baileys.proto;
+} catch {
+  try {
+    const baileys = await import('baileys');
+    generateWAMessageFromContent = baileys.generateWAMessageFromContent;
+    proto = baileys.proto;
+  } catch (err) {
+    console.error('[PLUGIN MGR] Impossibile caricare Baileys per i bottoni:', err.message);
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const pluginsDir = path.resolve(__dirname, '../plugins');
@@ -11,8 +26,8 @@ const _fs = fs.promises;
 function checkIsOwner(sender, msg, sock) {
   if (msg?.key?.fromMe) return true;
   if (!sender || !sock?.user) return false;
-  const botNum = (sock.user.id || sock.user.jid || '').split(':')[0].replace(/[^0-9]/g, '');
-  const senderNum = sender.replace(/[^0-9]/g, '');
+  const botNum = (sock.user.id || sock.user.jid || '').split(':')[0].replace(/\D/g, '');
+  const senderNum = sender.replace(/\D/g, '');
   return botNum && senderNum === botNum;
 }
 
@@ -29,7 +44,7 @@ function checkSyntax(filePath) {
 }
 
 function cleanFilename(name = '') {
-  return name.trim().replace(/\.js$/i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return name.trim().replace(/\.js$/i, '').replace(/[^a-zA-Z0-9_\-]/g, '');
 }
 
 function formatBytes(bytes) {
@@ -119,6 +134,60 @@ function findSimilarFiles(searchTerm, baseDir = process.cwd(), maxResults = 5) {
   return results.sort((a, b) => b.similarity - a.similarity).slice(0, maxResults);
 }
 
+async function sendInteractiveButtons(sock, from, text, buttons, quotedMsg) {
+  try {
+    if (!generateWAMessageFromContent) {
+      throw new Error('Funzione generateWAMessageFromContent non caricata.');
+    }
+
+    const nativeButtons = buttons.map(btn => ({
+      name: 'quick_reply',
+      buttonParamsJson: JSON.stringify({
+        display_text: btn.displayText,
+        id: btn.buttonId
+      })
+    }));
+
+    let interactiveObj = {
+      body: { text: text },
+      footer: { text: '⚙️ Plugin Manager' },
+      header: { title: '', hasMediaAttachment: false },
+      nativeFlowMessage: {
+        buttons: nativeButtons
+      }
+    };
+
+    if (proto?.Message?.InteractiveMessage) {
+      interactiveObj = proto.Message.InteractiveMessage.create({
+        body: proto.Message.InteractiveMessage.Body.create({ text: text }),
+        footer: proto.Message.InteractiveMessage.Footer.create({ text: '⚙️ Plugin Manager' }),
+        header: proto.Message.InteractiveMessage.Header.create({ title: '', hasMediaAttachment: false }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+          buttons: nativeButtons
+        })
+      });
+    }
+
+    const msgContent = {
+      viewOnceMessage: {
+        message: {
+          interactiveMessage: interactiveObj
+        }
+      }
+    };
+
+    const waMsg = generateWAMessageFromContent(from, msgContent, { quoted: quotedMsg });
+    return await sock.relayMessage(from, waMsg.message, { messageId: waMsg.key.id });
+  } catch (err) {
+    console.error('[BUTTONS ERROR, FALLBACK TO TEXT]', err.message);
+    let fallbackText = text + '\n\n';
+    buttons.forEach((b, i) => {
+      fallbackText += `*${i + 1}.${b.displayText}*\n👉 \`${b.buttonId}\`\n\n`;
+    });
+    return await sock.sendMessage(from, { text: fallbackText }, { quoted: quotedMsg });
+  }
+}
+
 async function triggerHotReload(sock, from, msg, filename) {
   try {
     if (typeof global.reloadPlugins !== 'function') {
@@ -160,12 +229,12 @@ export default {
     const p = prefix || '.';
     const cmd = command.toLowerCase();
 
-    const reply = async (text, options = {}) => {
+    const reply = async (text) => {
       try {
-        if (typeof sendText === 'function' && !options.buttons) {
+        if (typeof sendText === 'function') {
           return await sendText(text);
         } else {
-          return await sock.sendMessage(from, { text, ...options }, { quoted: msg });
+          return await sock.sendMessage(from, { text }, { quoted: msg });
         }
       } catch (err) {
         console.error('[PLUGIN MANAGER REPLY ERROR]', err);
@@ -197,7 +266,7 @@ export default {
           pluginList,
           '',
           '───────────────',
-          `_Usa \`${p}getplugin <nome>\` per cercare o leggere un file_`
+          `_Usa \`${p}gp <nome>\` per cercare o leggere un file_`
         ].join('\n');
 
         return await reply(text);
@@ -228,37 +297,28 @@ export default {
 
       if (similarFiles.length === 1) {
         const file = similarFiles[0];
-        const messaggio = `*${file.name}:*`;
+        const messaggio = `📄 *FILE TROVATO:* \`${file.name}\`\n📌 *Percorso:* \`${file.relativePath}\``;
 
         const buttons = [
-          { buttonId: `${p}ottienifile${file.path}`, buttonText: { displayText: '📄 File' }, type: 1 },
-          { buttonId: `${p}fileplugin${file.path}`, buttonText: { displayText: '📜 Visualizza Codice' }, type: 1 }
+          { buttonId: `${p}ottienifile${file.path}`, displayText: '📄 Scarica File' },
+          { buttonId: `${p}fileplugin${file.path}`, displayText: '📜 Leggi Codice' }
         ];
 
-        return await reply(messaggio, { buttons });
+        return await sendInteractiveButtons(sock, from, messaggio, buttons, msg);
       }
 
       let listaFile = [
-        `*RICERCA FILE: "${query}"*`,
+        `🔍 *RICERCA FILE: "${query}"*`,
         '───────────────',
-        `File trovati (${similarFiles.length}):`,
-        ''
+        `Trovati ${similarFiles.length} file simili. Seleziona una delle opzioni sottostanti:`
       ].join('\n');
-
-      similarFiles.forEach((file, index) => {
-        const percentuale = (file.similarity * 100).toFixed(1);
-        listaFile += `> *${index + 1}.* \`${file.name}\` (${percentuale}\%)\n>    _${file.relativePath}_\n\n`;
-      });
-
-      listaFile += '───────────────\n_Seleziona un file dai bottoni qui sotto:_';
 
       const buttons = similarFiles.map((file, index) => ({
         buttonId: `${p}selectfile${file.path}`,
-        buttonText: { displayText: `${index + 1}️⃣ ${file.name.slice(0, 20)}` },
-        type: 1
+        displayText: `${index + 1}️⃣ ${file.name.slice(0, 20)}`
       }));
 
-      return await reply(listaFile, { buttons });
+      return await sendInteractiveButtons(sock, from, listaFile, buttons, msg);
     }
 
     if (cmd === 'selectfile') {
@@ -272,14 +332,14 @@ export default {
       }
 
       const fileName = path.basename(filePath);
-      const messaggio = `*${fileName}:*`;
+      const messaggio = `📂 *FILE SELEZIONATO:* \`${fileName}\`\n📌 *Percorso:* \`${filePath}\``;
 
       const buttons = [
-        { buttonId: `${p}ottienifile${filePath}`, buttonText: { displayText: '📄 File' }, type: 1 },
-        { buttonId: `${p}fileplugin${filePath}`, buttonText: { displayText: '📜 Visualizza Codice' }, type: 1 }
+        { buttonId: `${p}ottienifile${filePath}`, displayText: '📄 Scarica File' },
+        { buttonId: `${p}fileplugin${filePath}`, displayText: '📜 Leggi Codice' }
       ];
 
-      return await reply(messaggio, { buttons });
+      return await sendInteractiveButtons(sock, from, messaggio, buttons, msg);
     }
 
     if (cmd === 'ottienifile') {
@@ -480,7 +540,9 @@ export default {
     if (!checkIsOwner(sender, msg, sock)) return false;
 
     let selectedId = '';
-    const interactive = msg.message?.interactiveResponseMessage;
+    const m = msg.message;
+
+    const interactive = m?.interactiveResponseMessage;
     if (interactive?.nativeFlowResponseMessage?.paramsJson) {
       try {
         const params = JSON.parse(interactive.nativeFlowResponseMessage.paramsJson);
@@ -489,8 +551,10 @@ export default {
     }
 
     if (!selectedId) {
-      const buttonResponse = msg.message?.buttonsResponseMessage;
-      selectedId = buttonResponse?.selectedButtonId || '';
+      selectedId = m?.buttonsResponseMessage?.selectedButtonId
+        || m?.templateButtonReplyMessage?.selectedId
+        || m?.listResponseMessage?.singleSelectReply?.selectedRowId
+        || '';
     }
 
     if (!selectedId) return false;

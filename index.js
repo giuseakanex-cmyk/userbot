@@ -129,7 +129,7 @@ export async function loadPlugins() {
   }
 }
 
-// System Watcher per l'Hot-Reload dei Plugin
+
 let watchTimeout = null;
 function watchPlugins() {
   const pluginsDir = path.join(process.cwd(), 'plugins');
@@ -152,7 +152,7 @@ function watchPlugins() {
 async function startBot() {
   await showStartupAnimation();
   await loadPlugins();
-  watchPlugins(); // Avvia il monitoraggio dei file in tempo reale
+  watchPlugins(); 
 
   const { state, saveCreds } = await useMultiFileAuthState('./session_auth');
 

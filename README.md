@@ -61,7 +61,7 @@ node index.js
 4. Apri WhatsApp sul telefono: Impostazioni > Dispositivi collegati > Collega un dispositivo > Collega con numero di telefono.
 5. Inserisci il codice a 8 cifre mostrato nel terminale.
 
-IL CODICE DI ACCOPPIAMENTO TRAMITE NUMERO DI TELEFONO DEVE ESSERE ANCORA PERFEZIONATO
+
   
   
   🧩 Struttura Plugin

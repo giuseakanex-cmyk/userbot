@@ -3,6 +3,7 @@ import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import chalk from 'chalk';
 import fs from 'fs/promises';
+import { watch } from 'fs';
 import path from 'path';
 import readline from 'readline';
 
@@ -128,9 +129,30 @@ export async function loadPlugins() {
   }
 }
 
+// System Watcher per l'Hot-Reload dei Plugin
+let watchTimeout = null;
+function watchPlugins() {
+  const pluginsDir = path.join(process.cwd(), 'plugins');
+  try {
+    watch(pluginsDir, (eventType, filename) => {
+      if (filename && filename.endsWith('.js')) {
+        if (watchTimeout) clearTimeout(watchTimeout);
+        watchTimeout = setTimeout(async () => {
+          console.log(chalk.bold.yellow(`\n🔄 [HOT-RELOAD] Rilevata modifica in "${filename}". Ricaricamento plugin in corso...`));
+          await loadPlugins();
+        }, 300);
+      }
+    });
+    console.log(chalk.bold.cyan('[HOT-RELOAD] Watcher attivo sulla cartella plugins/'));
+  } catch (err) {
+    console.error(chalk.red('[HOT-RELOAD ERROR] Impossibile avviare il watcher:'), err.message);
+  }
+}
+
 async function startBot() {
   await showStartupAnimation();
   await loadPlugins();
+  watchPlugins(); // Avvia il monitoraggio dei file in tempo reale
 
   const { state, saveCreds } = await useMultiFileAuthState('./session_auth');
 

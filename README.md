@@ -1,6 +1,6 @@
 <div align="center">
 
-  <h1>USER BOT</h1>
+  <h1>USER BOT V1.5</h1>
   <p><b>Un UserBot per WhatsApp semplice, veloce e personalizzabile.</b></p>
 
   <p>

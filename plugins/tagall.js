@@ -1,5 +1,3 @@
-import { cleanJid } from '../lib/libuser.js';
-
 export default {
   name: 'tagall',
   aliases: ['hidetag', 'tag'],
@@ -16,7 +14,10 @@ export default {
     }
 
     const groupMetadata = await sock.groupMetadata(from);
-    const participants = groupMetadata.participants.map(p => cleanJid(p.id));
+    const participants = groupMetadata.participants.map(p => {
+      const cleanNumber = p.id.split(':')[0].split('@')[0];
+      return `${cleanNumber}@s.whatsapp.net`;
+    });
 
     const emojiPool = [
       '👑', '⚡', '🔥', '💎', '🎯', '🚀', '💣', '🌟', '✦', '💫',
@@ -34,16 +35,10 @@ export default {
     const messageBody = `${text}\n\n${emojiLine}`;
 
     for (let i = 1; i <= 5; i++) {
-      if (i === 1) {
-        await sock.sendMessage(from, {
-          text: messageBody,
-          mentions: participants
-        });
-      } else {
-        await sock.sendMessage(from, {
-          text: messageBody
-        });
-      }
+      await sock.sendMessage(from, {
+        text: messageBody,
+        mentions: participants
+      });
       await new Promise(resolve => setTimeout(resolve, 350));
     }
   }
